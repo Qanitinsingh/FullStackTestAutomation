@@ -34,7 +34,7 @@ public class PlaywrightDifferentBrowsersParallel {
                 FrameLocator iframe = page.frameLocator("iframe.content-iframe");
                 iframe.locator("#plain-text").fill("Nitin");
 
-                System.out.println("✅ Completed on: " + browserName.toUpperCase());
+                System.out.println("Completed on: " + browserName.toUpperCase());
 
             } finally {
                 if (context != null) context.close();
