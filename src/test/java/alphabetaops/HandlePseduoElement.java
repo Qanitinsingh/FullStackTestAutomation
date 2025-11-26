@@ -13,6 +13,7 @@ public class HandlePseduoElement {
     public static void main(String[] args) {
         driver = new ChromeDriver();
         driver.get("https://play1.automationcamp.ir/advanced.html");
+
         JavascriptExecutor js = (JavascriptExecutor) driver;
         String elementValue = js.executeScript("return window.getComputedStyle(document.querySelector('.star-rating'),'::after').getPropertyValue('content')").toString();
         System.out.println(elementValue);
