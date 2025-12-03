@@ -11,6 +11,7 @@ import org.openqa.selenium.edge.EdgeDriver;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import utill.DriverFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -20,132 +21,62 @@ import java.util.Date;
 
 public class Hooks {
 
-    public static WebDriver driver;
-    public static String browserName; // can be set from system property or tag
     private static final Logger logger = LoggerFactory.getLogger(Hooks.class);
 
     @Before
     public void setup(Scenario scenario) {
-        try {
-            // Step 1: Check system property
-            String browserFromProperty = System.getProperty("browser");
+        String browser = decideBrowser(scenario);
 
-            // Step 2: Check scenario tags
-            String browserFromTag = scenario.getSourceTagNames().stream()
-                    .filter(tag -> tag.matches("@(chrome|firefox|edge)"))
-                    .map(tag -> tag.replace("@", ""))
-                    .findFirst()
-                    .orElse(null);
+        logger.info("Launching browser: {}", browser);
 
-            // Step 3: Decide browser to launch
-            if (browserFromProperty != null && !browserFromProperty.isEmpty()) {
-                browserName = browserFromProperty;
-            } else if (browserFromTag != null) {
-                browserName = browserFromTag;
-            } else {
-                browserName = "chrome";
-            }
-
-            logger.info("Launching browser: {}", browserName);
-
-            // Step 4: Launch driver dynamically using if-else
-            if (browserName.equalsIgnoreCase("chrome")) {
-                driver = new ChromeDriver();
-            } else if (browserName.equalsIgnoreCase("firefox")) {
-                driver = new FirefoxDriver();
-            } else if (browserName.equalsIgnoreCase("edge")) {
-                driver = new EdgeDriver();
-            } else {
-                logger.warn("Browser '{}' not recognized. Launching Chrome as default.", browserName);
-                driver = new ChromeDriver();
-                browserName = "chrome";
-            }
-
-            driver.manage().window().maximize();
-            driver.manage().deleteAllCookies();
-            logger.info("{} browser launched, window maximized, and cookies cleared.", browserName);
-
-        } catch (Exception e) {
-            logger.error("Exception during WebDriver setup for {}: {}", browserName, e.getMessage(), e);
-        }
+        // IMPORTANT FIX
+        DriverFactory.setDriver(browser);
     }
 
     @After
     public void tearDown(Scenario scenario) {
         try {
-            if (scenario.isFailed() && driver != null) {
+            if (scenario.isFailed() && DriverFactory.getDriver() != null) {
                 captureScreenshot(scenario);
-            } else if (driver != null) {
-                logger.info("Scenario '{}' passed.", scenario.getName());
             }
         } catch (Exception e) {
-            logger.error("Exception during screenshot capture or teardown: {}", e.getMessage(), e);
+            logger.error("Error during teardown: {}", e.getMessage(), e);
         } finally {
-            cleanUp();
+            DriverFactory.quitDriver();
+            logger.info("Browser closed.");
         }
+    }
+
+    // ----------------- Helper Methods ---------------------
+
+    private String decideBrowser(Scenario scenario) {
+
+        String sysBrowser = System.getProperty("browser");
+        if (sysBrowser != null && !sysBrowser.isEmpty()) {
+            return sysBrowser.toLowerCase();
+        }
+
+        return scenario.getSourceTagNames().stream()
+                .filter(tag -> tag.matches("@(chrome|firefox|edge|safari)"))
+                .map(tag -> tag.replace("@", "").toLowerCase())
+                .findFirst()
+                .orElse("chrome");
     }
 
     private void captureScreenshot(Scenario scenario) throws IOException {
         String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String screenshotName = scenario.getName().replaceAll(" ", "_") + "_" + timestamp + ".png";
+        String name = scenario.getName().replace(" ", "_") + "_" + timestamp + ".png";
 
-        File screenshotDir = new File(System.getProperty("user.dir") + File.separator + "ScreenShots");
-        if (!screenshotDir.exists()) {
-            screenshotDir.mkdirs();
-        }
+        File screenshotDir = new File(System.getProperty("user.dir") + "/ScreenShots");
+        screenshotDir.mkdirs();
 
-        File srcFile = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
-        File destFile = new File(screenshotDir, screenshotName);
-        Files.copy(srcFile.toPath(), destFile.toPath());
+        File src = ((TakesScreenshot) DriverFactory.getDriver()).getScreenshotAs(OutputType.FILE);
+        File dest = new File(screenshotDir, name);
+        Files.copy(src.toPath(), dest.toPath());
 
-        byte[] screenshotBytes = ((TakesScreenshot) driver).getScreenshotAs(OutputType.BYTES);
-        scenario.attach(screenshotBytes, "image/png", screenshotName);
+        scenario.attach(((TakesScreenshot) DriverFactory.getDriver()).getScreenshotAs(OutputType.BYTES),
+                "image/png", name);
 
-        logger.error("Scenario '{}' failed. Screenshot saved at: {}", scenario.getName(), destFile.getAbsolutePath());
-    }
-
-    private void cleanUp() {
-        try {
-            if (driver != null) {
-                driver.quit();
-                logger.info("{} browser quit successfully.", browserName);
-            }
-
-            // Kill leftover driver processes
-            killDriverProcesses(browserName);
-
-            driver = null;
-        } catch (Exception e) {
-            logger.error("Error during browser cleanup: {}", e.getMessage(), e);
-        }
-    }
-
-    private void killDriverProcesses(String browser) {
-        String os = System.getProperty("os.name").toLowerCase();
-        String processName = "";
-
-        if (browser.equalsIgnoreCase("chrome")) {
-            processName = "chromedriver";
-        } else if (browser.equalsIgnoreCase("firefox")) {
-            processName = "geckodriver";
-        } else if (browser.equalsIgnoreCase("edge")) {
-            processName = "msedgedriver";
-        } else {
-            processName = "chromedriver";
-        }
-
-        try {
-            Process process;
-            if (os.contains("win")) {
-                process = Runtime.getRuntime().exec("taskkill /F /IM " + processName + ".exe /T");
-            } else {
-                process = Runtime.getRuntime().exec("pkill -f " + processName);
-            }
-            process.waitFor();
-
-            logger.info("Cleaned up any existing '{}' driver processes.", processName);
-        } catch (Exception e) {
-            logger.warn("Unable to kill {} process automatically: {}", processName, e.getMessage());
-        }
+        logger.error("Scenario FAILED. Screenshot saved at: {}", dest.getAbsolutePath());
     }
 }

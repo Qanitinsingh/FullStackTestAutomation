@@ -6,6 +6,7 @@ import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import org.openqa.selenium.WebDriver;
 import page.methods.DemoMethods;
+import utill.DriverFactory;
 
 import java.util.List;
 import java.util.Map;
@@ -15,7 +16,9 @@ public class DemoSteps{
     private WebDriver driver;
 
     public DemoSteps() {
-        driver = Hooks.driver;
+
+
+        driver = DriverFactory.getDriver();
     }
 
     @Given("I navigate to {string}")
