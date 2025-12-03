@@ -8,9 +8,15 @@ Feature: Verify Login Functionality of Application
 #      | Admin    | admin123 |
 #    Then I should see the dashboard page
 
-@SmokeTest
-  Scenario: Successful Login with Valid Credentials
+@SmokeTest @firefox
+  Scenario: Successful Login with Valid Credentials in firefox
     Given I navigate to "https://opensource-demo.orangehrmlive.com/web/index.php/auth/login"
     When I enter the Username as "Admin" and Password as "admin123"
   And Click on Login Button
     Then I should see the dashboard page
+
+  @chrome
+  Scenario: Successful Login with Valid Credentials in chrome
+    Given I navigate to "https://opensource-demo.orangehrmlive.com/web/index.php/auth/login"
+    When I enter the Username as "Admin" and Password as "admin123"
+    And Click on Login Button
